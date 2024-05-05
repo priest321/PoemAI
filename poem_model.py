@@ -11,24 +11,25 @@ import random
 import matplotlib.pyplot as plt
 
 FILE_PATH = "data/music_training_data.txt"
-MODEL_PATH = "LLM_music.pth"
+MODEL_PATH = "pre_trained_model/LLM_poem.pth"
 
 # hyperparamemters
 BATCH_SIZE = 4
 CTX_LENGTH = 64
 NUM_BLOCK = 8
-D_MODEL = 128 # should be 512
+D_MODEL = 64 # should be 512
 NUM_HEAD = 4
 HEAD_SIZE = int(D_MODEL/NUM_HEAD)
 LR = 0.001
-DROP_OUT = 0.1
-EVAL_ITERS = 20
+DROP_OUT = 0.2
+EVAL_ITERS = 50
+VALID_EVAL_ITERS = 5
 EVAL_MAX = 1000
 PUNCTUATION = [",", ".", "!", ":", "!", "\n"]
 TEXT = []
 TEMPERATURE = 1.0
 TORCH_SEED = 1337
-TEST_INPUT = ["我", "情", "爱", "心"]
+VALID_INPUT = ["我", "伤", "责", "脆"]
 torch.manual_seed(TORCH_SEED)
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -175,19 +176,25 @@ class LLMModel(nn.Module):
             loss = F.cross_entropy(input=logits_reshaped, target=targets_reshaped)
 
         return logits, loss
-
-    def generate(self, idx, max_new_tokens=20):
+    
+    def output_relate_word(idx, max_new_tokens):
+    
         output = [idx.item()]
         for token in range(max_new_tokens):
             logits, loss = self.forward(idx)
             probs = F.softmax(input=logits/TEMPERATURE, dim=-1)
             idx_next = torch.argmax(probs)
-            # probs[0][0] = probs form all words
             # idx_next_sample = torch.multinomial(probs[0][0], 1).item()
             idx = torch.tensor([[idx_next.item()]], dtype=torch.long, device=DEVICE)
             output.append(idx_next.item())
         
         return " ".join([self.index_to_word[index] for index in output])
+    
+    def short_sentence(idxs, max_new_tokens):
+        pass
+        
+    def generate(self, idx, max_new_tokens=20, single_word=True):
+        print(self.output_relate_word(idx, max_new_tokens) if single_word else self.short_sentence(idx, max_new_tokens))
 
 
 def get_batch(data_type: str, train_data, test_data):
@@ -203,17 +210,17 @@ def estimate_loss(LLM_model, train_data, test_data):
     # Disable learning
     LLM_model.eval()
     for data_type in ["train", "valid"]:
-        losses = torch.zeros(EVAL_ITERS)
-        for k in range(EVAL_ITERS):
+        losses = torch.zeros(VALID_EVAL_ITERS)
+        for k in range(VALID_EVAL_ITERS):
             x_batch, y_batch = get_batch(data_type, train_data, test_data)
             logits, loss = LLM_model(x_batch, y_batch)
             logits
             losses[k] = loss.item()
         output[data_type] = losses.mean()
     
-    for c in TEST_INPUT:
+    for c in VALID_INPUT:
         test_output = torch.tensor([[LLM_model.word_to_index[c]]], dtype=torch.long, device=DEVICE)
-        print(LLM_model.generate(test_output, 6))
+        print(LLM_model.generate(test_output, 10))
         
     # Active learning
     LLM_model.train()
@@ -259,7 +266,7 @@ def get_LLM_model():
         optimizer.step()
     torch.save(model, MODEL_PATH)
     
-    display_graph(track_losses)
+    #display_graph(track_losses)
 
 if __name__ == "__main__":
     get_LLM_model()
