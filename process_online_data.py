@@ -1,12 +1,12 @@
 import string
 import os
 import json
+from tqdm.rich import trange
 
 FILE_PATH = "data/music_data.json"
 OUTPUT_FILE_PATH = "data/music_training_data.txt"
 FILE_SIZE = 1250
-output_data = ""
-count = 0
+
 
 def is_chinese(text):
     for char in text:
@@ -25,18 +25,21 @@ def is_chinese(text):
     return True
     
 with open(FILE_PATH, 'r', encoding="utf8") as f:
-    for line in f:
-        count += 1
-        data_list = json.loads(line).get('geci')
+    lines_data = f.readlines()
+    total_len = len(lines_data)
+    output_data = ""
+    
+    for i in trange(total_len):
+        data_list = json.loads(lines_data[i]).get('geci')
         for data in data_list:
             for d in data.split(" "):
                 if is_chinese(d):
                     output_data += d
         output_data += "\n"
-
+        
+        # Save memory
         if len(output_data) > 50000:
             with open(OUTPUT_FILE_PATH, 'a', encoding='utf8') as f:
                 f.write(output_data)
-            print("current complete:", round(count/FILE_SIZE, 1), "%")
             output_data = ""
 
