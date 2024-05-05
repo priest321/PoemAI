@@ -23,7 +23,7 @@ def is_chinese(text):
         ):
             return False
     return True
-    
+
 with open(FILE_PATH, 'r', encoding="utf8") as f:
     lines_data = f.readlines()
     total_len = len(lines_data)
@@ -36,7 +36,7 @@ with open(FILE_PATH, 'r', encoding="utf8") as f:
                 if is_chinese(d):
                     output_data += d
         output_data += "\n"
-        
+
         # Save memory
         if len(output_data) > 50000:
             with open(OUTPUT_FILE_PATH, 'a', encoding='utf8') as f:
