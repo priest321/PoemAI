@@ -22,7 +22,7 @@ NUM_HEAD = 4
 HEAD_SIZE = int(D_MODEL/NUM_HEAD)
 LR = 0.001
 DROP_OUT = 0.2
-EVAL_ITERS = 10 # Because the loss.backward this num should not be too big
+EVAL_ITERS = 20 # Because the loss.backward this num should not be too big
 VALID_EVAL_ITERS = 5
 EVAL_MAX = 2000
 PUNCTUATION = [",", ".", "!", ":", "!", "\n"]
@@ -30,7 +30,7 @@ TEXT = []
 TEMPERATURE = 1.0
 TORCH_SEED = 1337
 VALID_INPUT = ["我", "伤", "责", "脆"]
-SENTENCE_INPUT = "悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月"
+SENTENCE_INPUT = "悠悠岁月"
 torch.manual_seed(TORCH_SEED)
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -236,7 +236,7 @@ def estimate_loss(LLM_model, train_data, test_data):
         for c in VALID_INPUT:
             test_input = torch.tensor([[LLM_model.word_to_index[c]]], dtype=torch.long, device=DEVICE)
             print(LLM_model.generate(test_input, 10))
-    
+
     # Sentence test
     if SENTENCE_INPUT:
         test_sentence_input = torch.tensor([[LLM_model.word_to_index[c] for c in list(SENTENCE_INPUT)]], dtype=torch.long, device=DEVICE)
