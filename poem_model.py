@@ -22,14 +22,15 @@ NUM_HEAD = 4
 HEAD_SIZE = int(D_MODEL/NUM_HEAD)
 LR = 0.001
 DROP_OUT = 0.2
-EVAL_ITERS = 50
+EVAL_ITERS = 10 # Because the loss.backward this num should not be too big
 VALID_EVAL_ITERS = 5
-EVAL_MAX = 1000
+EVAL_MAX = 2000
 PUNCTUATION = [",", ".", "!", ":", "!", "\n"]
 TEXT = []
 TEMPERATURE = 1.0
 TORCH_SEED = 1337
 VALID_INPUT = ["我", "伤", "责", "脆"]
+SENTENCE_INPUT = "悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月悠悠岁月"
 torch.manual_seed(TORCH_SEED)
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -177,24 +178,36 @@ class LLMModel(nn.Module):
 
         return logits, loss
     
-    def output_relate_word(idx, max_new_tokens):
-    
+    def get_next_word(self, idx):
+        logits, loss = self.forward(idx)
+        probs = F.softmax(input=logits, dim=-1)
+        idx_next = torch.argmax(probs, dim=-1)
+        # idx_next_sample = torch.multinomial(probs[0][0], 1).item()
+        idx = torch.tensor([[idx_next[-1][-1].item()]], dtype=torch.long, device=DEVICE)
+        return idx
+
+    def process_word(self, idx, max_new_tokens):
         output = [idx.item()]
         for token in range(max_new_tokens):
-            logits, loss = self.forward(idx)
-            probs = F.softmax(input=logits/TEMPERATURE, dim=-1)
-            idx_next = torch.argmax(probs)
-            # idx_next_sample = torch.multinomial(probs[0][0], 1).item()
-            idx = torch.tensor([[idx_next.item()]], dtype=torch.long, device=DEVICE)
+            idx = self.get_next_word(idx)
+            output.append(idx.item())
+        
+        return " ".join([self.index_to_word[index] for index in output])
+
+    def process_sentence(self, idx, max_new_tokens, ctx_len):
+        output = [c.item() for c in idx[0]]
+        for token in range(max_new_tokens):
+            idx = idx[:,-CTX_LENGTH:] if ctx_len > CTX_LENGTH else idx
+            idx_next = self.get_next_word(idx)
+            idx = torch.cat((idx, idx_next), dim=-1)
             output.append(idx_next.item())
         
         return " ".join([self.index_to_word[index] for index in output])
-    
-    def short_sentence(idxs, max_new_tokens):
-        pass
-        
-    def generate(self, idx, max_new_tokens=20, single_word=True):
-        print(self.output_relate_word(idx, max_new_tokens) if single_word else self.short_sentence(idx, max_new_tokens))
+
+    def generate(self, idx, max_new_tokens=20):
+        # check shape
+        batch, text = idx.shape
+        return self.process_word(idx, max_new_tokens) if text==1 else self.process_sentence(idx, max_new_tokens, text)
 
 
 def get_batch(data_type: str, train_data, test_data):
@@ -218,9 +231,16 @@ def estimate_loss(LLM_model, train_data, test_data):
             losses[k] = loss.item()
         output[data_type] = losses.mean()
     
-    for c in VALID_INPUT:
-        test_output = torch.tensor([[LLM_model.word_to_index[c]]], dtype=torch.long, device=DEVICE)
-        print(LLM_model.generate(test_output, 10))
+    # Single world test
+    if VALID_INPUT:
+        for c in VALID_INPUT:
+            test_input = torch.tensor([[LLM_model.word_to_index[c]]], dtype=torch.long, device=DEVICE)
+            print(LLM_model.generate(test_input, 10))
+    
+    # Sentence test
+    if SENTENCE_INPUT:
+        test_sentence_input = torch.tensor([[LLM_model.word_to_index[c] for c in list(SENTENCE_INPUT)]], dtype=torch.long, device=DEVICE)
+        print(LLM_model.generate(test_sentence_input, 10))
         
     # Active learning
     LLM_model.train()
@@ -243,6 +263,7 @@ def display_graph(loss_history):
         plt.ylabel('Loss')
     plt.title("Validation Loss")
     plt.show()
+
 
 def get_LLM_model():
     model = LLMModel(text)
