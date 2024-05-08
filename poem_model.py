@@ -34,7 +34,7 @@ SENTENCE_INPUT = "悠悠岁月"
 torch.manual_seed(TORCH_SEED)
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-
+# To do 1 data separate not correct. 
 
 with open(FILE_PATH, 'r', encoding="utf8") as f:
     text = f.read()
@@ -272,11 +272,11 @@ def get_LLM_model():
     train_data = model.tokenized_text[:separate_index]
     test_data = model.tokenized_text[separate_index:]
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
+    optimizer = torch.optim.SGD(model.parameters(), lr=LR)
     track_losses = []
 
     for step in range(EVAL_MAX):
-        if step % EVAL_ITERS == 0 or (step == EVAL_MAX -1):
+        if step % EVAL_ITERS == 0 or (step==EVAL_MAX-1):
             e_loss = estimate_loss(model, train_data, test_data)
             track_losses.append(e_loss)
             print("steps", step, "loss", round(e_loss["train"].item(), 3), "validation loss: ", round(e_loss['valid'].item(), 3))
@@ -285,7 +285,7 @@ def get_LLM_model():
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
-    torch.save(model, MODEL_PATH)
+    torch.save(model.state_dict(), MODEL_PATH)
     
     #display_graph(track_losses)
 
